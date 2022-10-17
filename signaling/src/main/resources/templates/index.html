@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Insert title here</title>
+</head>
+<body>
+	<h1>안녕하세요</h1>
+</body>
+<script type="text/javascript">
+	
+	var conn = new WebSocket('ws://192.168.1.19:35680/socket');
+	
+	const constraints = {
+		    video: true, audio : true
+	};
+	
+
+	//navigator.mediaDevices.
+	//getUserMedia(constraints).then(function(stream) { /* use the stream */ })
+	//    .catch(function(err) {/* handle the error */});
+	
+	/**
+	 * constraints 객체를 사용하여 비디오의 프레임 속도, 너비 및 높이를 지정
+	 */
+	// var constraints = {
+//	     video : {
+//	         frameRate : {
+//	             ideal : 10,
+//	             max : 15
+//	         },
+//	         width : 1280,
+//	         height : 720,
+//	         facingMode : "user"
+//	     }
+	// };
+	
+		
+	conn.onopen = function() {
+	    console.log("연결시작");
+	    initialize();
+	};
+	// 요청시 이벤트 리스너 (conn.send시 발동)
+	conn.onmessage = function(msg) {
+	    var content = JSON.parse(msg.data);
+	    var data = content.data;
+	    switch (content.event) {
+	        // when somebody wants to call us
+	        case "offer":
+	            handleOffer(data);
+	            break;
+	        case "answer":
+	            handleAnswer(data);
+	            break;
+	        // when a remote peer sends an ice candidate to us
+	        case "candidate":
+	            handleCandidate(data);
+	            break;
+	        default:
+	            break;
+	    }
+	};
+ 	
+	function send(message) {
+		conn.send(JSON.stringify(message));
+	}
+ 	
+	//초기 RTCDataChannel 설정
+ 	function initialize() {
+ 	    var configuration = {
+ 	        "iceServers" : [ {
+ 	            "url" : "stun:stun.l.google.com:19302"
+ 	        } ]
+ 	    };
+
+ 	    /**
+ 	     * 간단한 RTCDataChannel 설정
+ 	     * 여기서는 stun만 설정
+ 	     */
+ 	    peerConnection = new RTCPeerConnection(configuration);
+
+
+ 	    /**
+ 	     * WebRTC는 ICE (Interactive Connection Establishment) 프로토콜을 사용하여 피어를 검색하고 연결을 설정
+ 	     * peerConnection 에 로컬 설명을 설정하면 icecandidate 이벤트가 트리거된다
+ 	     * remote Peer가 Set of remote candidates에 Candidate를 추가 할 수 있도록 candidate를 remote peer로 전송
+ 	     * 이를 위해 onicecandidate 이벤트에 대한 리스너를 만든다.
+ 	     *
+ 	     * ICE candidate의 모든 candidate가 수집 될 때 이벤트는 빈 후보 문자열을 다시 트리거
+ 	     * 그 이유는 빈 문자열을 remote peer에게 전달하여 모든 icecandidate 객체가 수집 되었음을 알리기 위해
+ 	     */
+ 	    // Setup ice handling
+ 	    peerConnection.onicecandidate = function(event) {
+ 	        if (event.candidate) {
+ 	            send({
+ 	                event : "candidate",
+ 	                data : event.candidate
+ 	            });
+ 	        }
+ 	    };
+
+ 	    /**
+ 	     * 메시지 전달에 사용할 dataChannel
+ 	     */
+ 	    // creating data channel
+ 	    dataChannel = peerConnection.createDataChannel("dataChannel", {
+ 	        reliable : true
+ 	    });
+
+ 	    /**
+ 	     * 데이터 채널의 다양한 이벤트에 대한 리스너
+ 	     */
+ 	    dataChannel.onerror = function(error) {
+ 	        console.log("Error occured on datachannel:", error);
+ 	    };
+
+ 	    dataChannel.onclose = function() {
+ 	        console.log("data channel is closed");
+ 	    };
+
+ 	    /**
+ 	     * 다른 피어에서 메시지를 수신하기 위해 onmessage 이벤트에 대한 리스너를 생성
+ 	     */
+ 	    // when we receive a message from the other peer, printing it on the console
+ 	    dataChannel.onmessage = function(event) {
+ 	        console.log(event.data);
+ 	    };
+
+ 	    /**
+ 	     * 데이터 채널에서 메시지를 수신하기위해 peerConnection 객체 에 콜백을 추가
+ 	     */
+ 	    peerConnection.ondatachannel = function (event) {
+ 	        dataChannel = event.channel;
+ 	    };
+
+
+ 	    /**
+ 	     * WebRTC WebRTC peerconnection object에 스트림을 추가
+ 	     * peerconnection에 스트림을 추가하면 연결된 피어 에서 addstream 이벤트가 트리거
+ 	     */
+ 	 //   peerConnection.addStream(stream);
+
+ 	    /**
+ 	     * remote peer 에서 listener를 통해 스트림을 수신
+ 	     * 해당 스트림은  HTML 비디오 요소로 설정
+ 	     */
+ 	    // peerConnection.onaddstream = function(event) {
+ 	    //     videoElement.srcObject = event.stream;
+ 	    // };
+
+ 		
+	}	
+</script>
+<script src="./js/client.js" type="text/javascript"></script>
+</html>

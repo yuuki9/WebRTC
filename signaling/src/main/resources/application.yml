@@ -1,0 +1,6 @@
+server:
+  port: 35680
+
+debug: false
+    
+    
